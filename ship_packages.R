@@ -1,4 +1,4 @@
-# Create a CSV file listing all installed packages in the current R version
+# Create a CSV file listing all installed packages in the current R version library
 # dir.path defines the path of the directory where you want the output file created.
 address_packages <- function( dir.path ){
   # Based on https://ibecav.github.io/update_libraries/
@@ -34,13 +34,15 @@ address_packages <- function( dir.path ){
              row.names = FALSE )
 }
 
-# Install previously installed packages in new R version library path.
-# Uses the output from write_package_info().
-# Installs up-to-date package version. Check package compatibility requirements.
+# Install previously installed packages in new R version library.
+# Uses the output from address_packages().
+# Installs the up-to-date package version. Check package compatibility requirements.
 # To omit certain packages from being installed, include them in the 'omit' argument.
 # Packages on CRAN, Bioconductor, or GitHub can be installed with this function.
-# Packages from other repositories should be installed via other means.
-# Installation from CRAN or Bioconductor can be done without any additional dependencies.
+# Installation from other repositories is not currently supported.
+# Such packages should be installed by other means.
+# Installation from CRAN can be done without any additional dependencies.
+# Installing from Bioconductor enforces an install of BiocManager.
 # Installing from GitHub enforces an install of devtools for the install_github() function.
 deliver_packages <- function( package.csv, 
                               from = c( "CRAN", "Bioconductor", "GitHub" ), 
@@ -86,8 +88,11 @@ deliver_packages <- function( package.csv,
     
     if ( length( bioc.pkgs ) > 0 ){
       
-      if ( !require( "BiocManager", quietly = TRUE ) )
+      warning( "Enforcing BiocManager install..." )
+      
+      if ( !require( "BiocManager", quietly = TRUE ) ){
         install.packages( "BiocManager" )
+        }
       
       BiocManager::install( bioc.pkgs, update = FALSE )
     } else{
@@ -105,8 +110,9 @@ deliver_packages <- function( package.csv,
       
       warning( "Enforcing devtools install..." )
       
-      if ( !require( "devtools", quietly = TRUE ) )
+      if ( !require( "devtools", quietly = TRUE ) ){
         install.packages( "devtools" )
+        }
       
       invisible( sapply( X = gh.pkgs,
                          FUN = function(x) { 
