@@ -1,6 +1,6 @@
 # Create a CSV file listing all installed packages in the current R version
 # dir.path defines the path of the directory where you want the output file created.
-write_package_info <- function( dir.path ){
+address_packages <- function( dir.path ){
   # Based on https://ibecav.github.io/update_libraries/
 
   pkgs <- as.data.frame( installed.packages() )
@@ -29,7 +29,7 @@ write_package_info <- function( dir.path ){
   pkgs$location <- sapply( pkgs$Package, pkg.source )
   
   write.csv( x = pkgs, 
-             file = paste0( dir.path, "/", "Rpackages_R-", 
+             file = paste0( dir.path, "/", "packages_R-", 
                             R.Version()$major, ".", R.Version()$minor, "_", Sys.Date(), ".csv"),
              row.names = FALSE )
 }
@@ -42,7 +42,7 @@ write_package_info <- function( dir.path ){
 # Packages from other repositories should be installed via other means.
 # Installation from CRAN or Bioconductor can be done without any additional dependencies.
 # Installing from GitHub enforces an install of devtools for the install_github() function.
-install_packages <- function( package.csv, 
+deliver_packages <- function( package.csv, 
                               from = c( "CRAN", "Bioconductor", "GitHub" ), 
                               omit = NULL ){
   
