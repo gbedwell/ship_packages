@@ -1,21 +1,30 @@
 # Create a CSV file listing all installed packages in the current R version library
 # dir.path defines the path of the directory where you want the output file created.
-address_packages <- function( dir.path ){
+# lib.path defines the library path. If NULL, .libPaths() is used.
+# v defines the R version. 
+# v is best input as character string, but can be numeric.
+address_packages <- function( dir.path, lib.path = NULL, v = NULL ){
   # Based on https://ibecav.github.io/update_libraries/
 
-  pkgs <- as.data.frame( installed.packages() )
+  if( is.null( lib.path ) ){
+    lib.path <- .libPaths()
+  }
+  
+  pkgs <- as.data.frame( installed.packages( lib.loc = lib.path ) )
   pkgs <- pkgs[ pkgs$Priority != "base" | is.na( pkgs$Priority ), ]
   pkgs <- subset( x = pkgs, select = -c( LinkingTo:Suggests ) )
   pkgs <- subset( x = pkgs, select = -c( Enhances:MD5sum ) )
   pkgs <- droplevels( pkgs )
   
   pkg.source <- function( pkg ){
-    x <- as.character( packageDescription( pkg )$Repository )
+    x <- as.character( packageDescription( pkg, lib.loc = lib.path )$Repository )
     if ( length(x)==0 ) {
-      y <- as.character( packageDescription( pkg )$GithubRepo )
-      z <- as.character( packageDescription( pkg )$GithubUsername )
+      y <- as.character( packageDescription( pkg, lib.loc = lib.path )$GithubRepo )
+      z <- as.character( packageDescription( pkg, lib.loc = lib.path )$GithubUsername )
       if ( length(y) == 0 ) {
-        if ( isTRUE( any( grepl( pattern = "bioconductor", x = as.character( packageDescription( pkg ) ), ignore.case = TRUE ) ) ) ){
+        if ( isTRUE( any( grepl( pattern = "bioconductor", 
+                                 x = as.character( packageDescription( pkg, lib.loc = lib.path ) ), 
+                                 ignore.case = TRUE ) ) ) ){
           return( "Bioconductor" ) } else{
             return( "Other" ) }
       } else {
@@ -28,9 +37,29 @@ address_packages <- function( dir.path ){
   
   pkgs$location <- sapply( pkgs$Package, pkg.source )
   
+  if( is.null( v ) ){
+    v <- paste0( R.Version()$major, ".", 
+                 R.Version()$minor )
+    } else{
+      v <- as.character( v )
+    }
+  
+  # Create a new matching variable based on version.
+  # Only includes major and minor values, not patch/dev values.
+  # e.g., 4.3, not 4.3.1
+  # This is because R doesn't always include patches/devs in library paths.
+  v.match <- substr( x = v, start = 1, stop = 3 )
+  
+  if( !isTRUE( grepl( pattern = v.match, x = lib.path ) ) ){
+    stop( "Provided R version incompatible with library path.",
+          call. = FALSE )
+    }
+  
+  # Names output file according to provided version,
+  # so will include patch/dev values if input.
   write.csv( x = pkgs, 
              file = paste0( dir.path, "/", "packages_R-", 
-                            R.Version()$major, ".", R.Version()$minor, "_", Sys.Date(), ".csv"),
+                            v, "_", Sys.Date(), ".csv"),
              row.names = FALSE )
 }
 
