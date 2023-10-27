@@ -1,11 +1,19 @@
-# Create a CSV file listing all installed packages in the current R version library
+# Create a data frame of all installed packages in the current R version library
+# write is a Boolean that states whether or not to write out a CSV file.
 # dir.path defines the path of the directory where you want the output file created.
 # lib.path defines the library path. If NULL, .libPaths() is used.
 # v defines the R version. 
 # v is best input as character string, but can be numeric.
-address_packages <- function( dir.path, lib.path = NULL, v = NULL ){
+address_packages <- function( write = TRUE, dir.path = getwd(), lib.path = NULL, v = NULL ){
   # Based on https://ibecav.github.io/update_libraries/
 
+  if( !isTRUE( write ) && is.null( lib.path ) ){
+    stop( paste( "To use the current library path, you must write out a file.",
+                 "To use this function without writing anything, specify a different library path.",
+                 sep = "\n" ),
+          call. = FALSE )
+  }
+  
   if( is.null( lib.path ) ){
     lib.path <- .libPaths()
   }
@@ -47,20 +55,27 @@ address_packages <- function( dir.path, lib.path = NULL, v = NULL ){
   # Create a new matching variable based on version.
   # Only includes major and minor values, not patch/dev values.
   # e.g., 4.3, not 4.3.1
-  # This is because R doesn't always include patches/devs in library paths.
+  # This is because R doesn't always include patch/dev versions in library paths.
   v.match <- substr( x = v, start = 1, stop = 3 )
   
+  # Makes sure that major/minor version values jive with library path.
   if( !isTRUE( grepl( pattern = v.match, x = lib.path ) ) ){
-    stop( "Provided R version incompatible with library path.",
+    stop( paste( "Incompatibility between R version and library path.",
+                 "Double check that the target R version matches the target library.",
+                 sep = "\n" ),
           call. = FALSE )
     }
   
-  # Names output file according to provided version,
-  # so will include patch/dev values if input.
-  write.csv( x = pkgs, 
-             file = paste0( dir.path, "/", "packages_R-", 
-                            v, "_", Sys.Date(), ".csv"),
-             row.names = FALSE )
+  if( isTRUE( write ) ){
+    # Names output file according to provided version.
+    # Will include patch/dev values if input.
+    write.csv( x = pkgs, 
+               file = paste0( dir.path, "/", "packages_R-", 
+                              v, "_", Sys.Date(), ".csv"),
+               row.names = FALSE )
+    } else{
+    return( pkgs )
+      }
 }
 
 # Install previously installed packages in new R version library.
@@ -73,9 +88,37 @@ address_packages <- function( dir.path, lib.path = NULL, v = NULL ){
 # Installation from CRAN can be done without any additional dependencies.
 # Installing from Bioconductor enforces an install of BiocManager.
 # Installing from GitHub enforces an install of devtools for the install_github() function.
-deliver_packages <- function( package.csv, 
+deliver_packages <- function( package.df = NULL,
+                              package.csv = NULL, 
                               from = c( "CRAN", "Bioconductor", "GitHub" ), 
                               omit = NULL ){
+  
+  if( is.null( package.df ) && is.null( package.csv ) ){
+    stop( "One of package.df or package.csv must be defined.",
+          call. = FALSE )
+  }
+  
+  if( !is.null( package.df ) && !is.null( package.csv ) ){
+    stop( "Both package.df and package.csv cannot be defined.",
+          call. = FALSE )
+  }
+  
+  if( !is.null( package.df ) ){
+    if( is.data.frame( package.df ) ){
+      pkgs <- package.df
+      } else{
+        stop( "package.df must be a data frame.",
+              call. = FALSE )
+      }
+    } else{
+      if( is.character( package.csv ) ){
+        pkgs <- read.csv( file = package.csv,
+                          header = TRUE )
+      } else{
+          stop( "package.csv must be a file path.",
+                call. = FALSE )
+      }
+    }
   
   valid.repos <- c( "CRAN", "cran", "Bioconductor",
                     "bioconductor", "GitHub", "github" )
@@ -87,17 +130,18 @@ deliver_packages <- function( package.csv,
              ignore )
   }
   
-  pkgs <- read.csv( file = pkg.csv,
-                    header = TRUE )
-  
+  # Check to see what packages are already installed.
   installed.pkgs <- as.data.frame( installed.packages() )$Package
   
+  # Make install list containing uninstalled packages.
   uninstalled.pkgs <- pkgs[ !pkgs$Package %in% installed.pkgs, ]
   
+  # Remove packages listed in omit.
   if ( !is.null( omit ) ){
     uninstalled.pkgs <- uninstalled.pkgs[ !uninstalled.pkgs$Package %in% omit ]
     }
   
+  # Install packages from each of the respective repositories.
   if ( "CRAN" %in% from || "cran" %in% from ){
     cat( "\n", "Installing CRAN packages...", "\n" )
     
@@ -153,8 +197,11 @@ deliver_packages <- function( package.csv,
     }
   }
   
+  # Enumerate newly installed packages.
   new.installed <- as.data.frame( installed.packages() )$Package
   new.installed <- new.installed[ !new.installed %in% installed.pkgs ]
+  
+  # ID still uninstalled packages.
   remaining <- uninstalled.pkgs[ !uninstalled.pkgs$Package %in% new.installed, ]
   
   if( nrow( remaining ) > 0 ){
