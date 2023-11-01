@@ -88,35 +88,17 @@ address_packages <- function( write = TRUE, dir.path = getwd(), lib.path = NULL,
 # Installation from CRAN can be done without any additional dependencies.
 # Installing from Bioconductor enforces an install of BiocManager.
 # Installing from GitHub enforces an install of devtools for the install_github() function.
-deliver_packages <- function( package.df = NULL,
-                              package.csv = NULL, 
+deliver_packages <- function( pkgs, 
                               from = c( "CRAN", "Bioconductor", "GitHub" ), 
                               omit = NULL ){
   
-  if( is.null( package.df ) && is.null( package.csv ) ){
-    stop( "One of package.df or package.csv must be defined.",
-          call. = FALSE )
-  }
-  
-  if( !is.null( package.df ) && !is.null( package.csv ) ){
-    stop( "Both package.df and package.csv cannot be defined.",
-          call. = FALSE )
-  }
-  
-  if( !is.null( package.df ) ){
-    if( is.data.frame( package.df ) ){
-      pkgs <- package.df
-      } else{
-        stop( "package.df must be a data frame.",
+  if( is.character( pkgs ) ){
+    pkgs <- read.csv( file = pkgs,
+                      header = TRUE ) 
+  } else{
+      if( !is.data.frame( pkgs ) ){
+        stop( "pkgs must be a file path or a data frame.",
               call. = FALSE )
-      }
-    } else{
-      if( is.character( package.csv ) ){
-        pkgs <- read.csv( file = package.csv,
-                          header = TRUE )
-      } else{
-          stop( "package.csv must be a file path.",
-                call. = FALSE )
       }
     }
   
